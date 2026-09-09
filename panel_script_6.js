@@ -3,7 +3,8 @@ function simulatorHealthAssessment(available,work,threshold){
   const normalizedThreshold=Number.isFinite(rawThreshold)?Math.max(1,Math.min(100,rawThreshold)):80;
   const coverage=total>0?Math.max(0,Math.min(100,usable/total*100)):0;
   const roundedCoverage=Math.round(coverage*10)/10,roundedThreshold=Math.round(normalizedThreshold*10)/10;
-  return {coverage:roundedCoverage,threshold:roundedThreshold,healthy:total>0&&coverage+1e-9>=normalizedThreshold,label:total>0&&coverage+1e-9>=normalizedThreshold?'健康':'风险'};
+  const healthy=total>0&&coverage+1e-9>=normalizedThreshold;
+  return {coverage:roundedCoverage,threshold:roundedThreshold,healthy,label:healthy?'健康':'风险'};
 }
 
 function ensureSimulatorHealthUI(){
@@ -25,7 +26,7 @@ function ensureSimulatorHealthUI(){
   if(!document.getElementById('simulatorHealthStyles')&&typeof document.createElement==='function'&&document.head){
     const style=document.createElement('style');
     style.id='simulatorHealthStyles';
-    style.textContent='.strategy-health{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:10px}.strategy-health-badge{display:inline-flex;align-items:center;min-height:21px;border-radius:999px;padding:2px 7px;font-weight:760}.strategy-health.healthy .strategy-health-badge{color:#08794f;background:var(--green2)}.strategy-health.risk .strategy-health-badge{color:#c92525;background:var(--red2)}.strategy-health-detail{color:var(--muted)}.strategy.health-risk{border-color:#efb7b7;background:color-mix(in srgb,var(--red2) 42%,var(--surface))}.strategy.health-ok{border-color:#b9dfcf}@media(max-width:720px){.strategy-health{align-items:flex-start}.strategy-health-detail{width:100%}}';
+    style.textContent='.strategy-health{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:10px}.strategy-health-badge{display:inline-flex;align-items:center;min-height:21px;border-radius:999px;padding:2px 7px;font-weight:760}.strategy-health.healthy .strategy-health-badge{color:#08794f;background:var(--green2)}.strategy-health.risk .strategy-health-badge{color:#c92525;background:var(--red2)}.strategy-health-detail{color:var(--muted)}.strategy.health-risk{border-color:#efb7b7;background:var(--red2)}.strategy.health-ok{border-color:#b9dfcf}@media(max-width:720px){.strategy-health{align-items:flex-start}.strategy-health-detail{width:100%}}';
     document.head.appendChild(style);
   }
 }
