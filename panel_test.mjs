@@ -3,15 +3,16 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const scripts = [1,2,3,4].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
+const scripts = [1,2,3,4,5].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
 const eventStart = scripts[2].indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')");
-const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3];
+const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3] + scripts[4];
 const adaptiveStyle = readFileSync(new URL('./panel_adaptive_style.html', import.meta.url),'utf8');
 
 function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
   const elements = new Map();
   const context = vm.createContext({
     location: {pathname},
+    window: {},
     document: {getElementById(id) {
       if (!elements.has(id)) {
         const classes = new Set();
@@ -118,7 +119,7 @@ test('reset-credit parser keeps only available Codex rate-limit credits', () => 
   assert.equal(summary.credits[1].id, 'd');
 });
 
-test('quota is hidden until manual refresh cache exists, then renders quota and reset columns', () => {
+test('server quota cache renders quota, update time and ordinal reset credits', () => {
   const p = panel();
   p.run(`renderAccounts([{email:'user@example.com',auth_index:'idx-1',account_id:'acct-1',status:'healthy',healthy:true}])`);
   let html = p.elements.get('accounts').innerHTML;
@@ -127,16 +128,16 @@ test('quota is hidden until manual refresh cache exists, then renders quota and 
   assert.doesNotMatch(html, /重置额度/);
   assert.equal((html.match(/<td/g) || []).length, 11);
 
-  p.run(`quotaCache.set('idx-1',{
-    status:'success',fetchedAt:1788948000000,
+  p.run(`applyServerQuotaSnapshot({
+    auth_index:'idx-1',status:'success',fetched_at:'2026-09-09T10:32:16Z',
     windows:[
-      {minutes:300,remaining:82,resetAt:1788951000000},
-      {minutes:10080,remaining:53,resetAt:1789555800000}
+      {minutes:300,remaining:82,reset_at:'2026-09-09T13:50:00Z'},
+      {minutes:10080,remaining:53,reset_at:'2026-09-15T04:30:00Z'}
     ],
-    resetAvailableCount:2,resetApplicableCount:2,
-    resetCredits:[
-      {id:'a',expiresAtMs:1789516800000},
-      {id:'b',expiresAtMs:1789776000000}
+    reset_available_count:2,reset_applicable_count:2,
+    reset_credits:[
+      {id:'a',expires_at:'2026-09-16T00:00:00Z'},
+      {id:'b',expires_at:'2026-09-19T00:00:00Z'}
     ]
   });renderAccounts(currentAccounts)`);
   html = p.elements.get('accounts').innerHTML;
@@ -144,9 +145,21 @@ test('quota is hidden until manual refresh cache exists, then renders quota and 
   assert.match(html, />82%/);
   assert.match(html, />7D</);
   assert.match(html, />53%/);
-  assert.match(html, /class="reset-cell"/);
+  assert.match(html, /更新于/);
+  assert.match(html, /第一次重置/);
+  assert.match(html, /第二次重置/);
   assert.match(html, /重置额度/);
   assert.equal((html.match(/<td/g) || []).length, 11);
+});
+
+test('failed server refresh keeps cached quota visible with retry state', () => {
+  const p = panel();
+  p.run(`applyServerQuotaSnapshot({auth_index:'idx-1',status:'error',fetched_at:'2026-09-09T10:32:16Z',error:'timeout',windows:[{minutes:300,remaining:82,reset_at:'2026-09-09T13:50:00Z'}]});renderAccounts([{email:'user@example.com',auth_index:'idx-1',status:'healthy'}])`);
+  const html = p.elements.get('accounts').innerHTML;
+  assert.match(html, />5H</);
+  assert.match(html, /更新于/);
+  assert.match(html, /刷新失败/);
+  assert.match(html, />重试</);
 });
 
 test('panel loading has timeout cancellation and partial-result recovery', () => {
@@ -154,6 +167,12 @@ test('panel loading has timeout cancellation and partial-result recovery', () =>
   assert.match(scripts[3], /Promise\.allSettled/);
   assert.match(scripts[3], /lastLoadHadError/);
   assert.match(scripts[3], /visibilitychange/);
+});
+
+test('quota runtime cache is loaded only on panel entry and has no polling loop', () => {
+  assert.match(scripts[4], /loadQuotaCacheOnce/);
+  assert.match(scripts[4], /attempted/);
+  assert.doesNotMatch(scripts[4], /setInterval/);
 });
 
 test('adaptive stylesheet follows manager themes and turns mobile tables into cards', () => {

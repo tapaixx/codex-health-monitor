@@ -292,6 +292,10 @@ func managementRegistrationPayloadForID(pluginID string) managementRegistration 
 			{Method: http.MethodPost, Path: routePrefix + "/run"},
 			{Method: http.MethodGet, Path: routePrefix + "/schedule"},
 			{Method: http.MethodPost, Path: routePrefix + "/schedule"},
+			{Method: http.MethodGet, Path: routePrefix + "/quota"},
+			{Method: http.MethodPost, Path: routePrefix + "/quota/refresh"},
+			{Method: http.MethodPost, Path: routePrefix + "/quota/refresh-all"},
+			{Method: http.MethodPost, Path: routePrefix + "/quota/reset"},
 		},
 		Resources: []managementResource{{Path: "/panel", Menu: "Codex Health Monitor", Description: "Codex account status, history, and scheduling."}},
 	}
@@ -331,6 +335,9 @@ func handleManagement(req managementRequest) managementResponse {
 		return jsonResponse(http.StatusServiceUnavailable, map[string]any{"error": "plugin runtime is not initialized"})
 	}
 	path := normalizeManagementPath(req.Path)
+	if response, handled := handleQuotaManagement(req, path, rt); handled {
+		return response
+	}
 	switch {
 	case req.Method == http.MethodGet && isPanelPath(path):
 		return managementResponse{StatusCode: http.StatusOK, Headers: map[string][]string{"Content-Type": {"text/html; charset=utf-8"}, "Cache-Control": {"no-store"}}, Body: []byte(panelHTML)}
