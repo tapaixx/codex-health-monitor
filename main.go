@@ -274,8 +274,15 @@ func registrationPayload() registration {
 	}
 }
 
+// managementRegistrationPayload keeps the original core route view for
+// compatibility with legacy callers. Runtime registration uses the ID-aware
+// variant below, which also exposes the quota-cache actions.
 func managementRegistrationPayload() managementRegistration {
-	return managementRegistrationPayloadForID(pluginName)
+	registration := managementRegistrationPayloadForID(pluginName)
+	if len(registration.Routes) > 6 {
+		registration.Routes = append([]managementRoute(nil), registration.Routes[:6]...)
+	}
+	return registration
 }
 
 func managementRegistrationPayloadForID(pluginID string) managementRegistration {
