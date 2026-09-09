@@ -10,7 +10,19 @@ function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
   const context = vm.createContext({
     location: {pathname},
     document: {getElementById(id) {
-      if (!elements.has(id)) elements.set(id, {textContent: '', innerHTML: '', disabled: false});
+      if (!elements.has(id)) {
+        const classes = new Set();
+        elements.set(id, {
+          textContent: '',
+          innerHTML: '',
+          disabled: false,
+          classList: {
+            add: (...names) => names.forEach(name => classes.add(name)),
+            remove: (...names) => names.forEach(name => classes.delete(name)),
+            contains: name => classes.has(name),
+          },
+        });
+      }
       return elements.get(id);
     }},
   });
@@ -48,4 +60,13 @@ test('failed discovery remains visible in history and escapes its message', () =
   p.run(`renderHistory([{trigger:'scheduled',error_code:'account_discovery_failed',error_message:'Failed <script>bad</script>',accounts:null}])`);
   assert.match(p.elements.get('history').innerHTML, /Failed &lt;script&gt;bad&lt;\/script&gt;/);
   assert.match(p.elements.get('history').innerHTML, /响应异常/);
+});
+
+test('dirty simulator state enables save and clean state disables it', () => {
+  const p = panel();
+  p.run('clearDirty()');
+  assert.equal(p.elements.get('saveWindow').disabled, true);
+  p.run('markDirty()');
+  assert.equal(p.elements.get('saveWindow').disabled, false);
+  assert.equal(p.elements.get('simDirty').classList.contains('show'), true);
 });
