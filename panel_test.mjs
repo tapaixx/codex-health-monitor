@@ -3,8 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const source = readFileSync(new URL('./panel.go', import.meta.url), 'utf8');
-const script = source.split('<script>')[1].split('</script>')[0];
+const script = [1,2,3].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8')).join('');
 
 function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
   const elements = new Map();
@@ -15,7 +14,6 @@ function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
       return elements.get(id);
     }},
   });
-  // Evaluate the shipped functions without connecting to a live management API.
   vm.runInContext(script.slice(0, script.indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')")), context);
   return {elements, run: code => vm.runInContext(code, context)};
 }

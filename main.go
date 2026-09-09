@@ -219,6 +219,9 @@ func dispatch(method string, request []byte) (any, error) {
 		if err := rt.Configure(string(payload.ConfigYAML), false); err != nil {
 			return nil, fmt.Errorf("invalid plugin configuration: %w", err)
 		}
+		if err := rt.ActivateManagedScheduler(); err != nil {
+			return nil, fmt.Errorf("unable to activate managed scheduler: %w", err)
+		}
 		return registrationPayload(), nil
 	case "plugin.reconfigure":
 		var payload struct {
@@ -233,6 +236,9 @@ func dispatch(method string, request []byte) (any, error) {
 		}
 		if err := rt.Configure(string(payload.ConfigYAML), true); err != nil {
 			return nil, fmt.Errorf("invalid plugin configuration: %w", err)
+		}
+		if err := rt.ActivateManagedScheduler(); err != nil {
+			return nil, fmt.Errorf("unable to activate managed scheduler: %w", err)
 		}
 		return registrationPayload(), nil
 	case "management.register":
@@ -256,14 +262,13 @@ func registrationPayload() registration {
 			Name:             pluginName,
 			Version:          pluginVersion,
 			Author:           "Cai Feng",
-			GitHubRepository: "https://github.com/hg3386628/codex-health-monitor",
+			GitHubRepository: "https://github.com/tapaixx/codex-health-monitor",
 			ConfigFields: []configField{
-				{Name: "schedule_mode", Type: "enum", EnumValues: []string{"interval", "daily_times"}, Description: "Scheduling mode"},
+				{Name: "schedule_mode", Type: "enum", EnumValues: []string{"interval", "daily_times"}, Description: "Legacy scheduling mode; window optimization is managed from the plugin panel"},
 				{Name: "interval_min", Type: "integer", Description: "Interval in minutes (5-10080)"},
 				{Name: "daily_times", Type: "string", Description: "Comma-separated HH:mm values"},
 				{Name: "timezone", Type: "string", Description: "IANA timezone"},
 				{Name: "timeout_sec", Type: "integer", Description: "Per-account timeout in seconds"},
-				{Name: "target_emails", Type: "string", Description: "Optional comma-separated account emails"},
 			},
 		},
 	}
@@ -288,9 +293,7 @@ func managementRegistrationPayloadForID(pluginID string) managementRegistration 
 			{Method: http.MethodGet, Path: routePrefix + "/schedule"},
 			{Method: http.MethodPost, Path: routePrefix + "/schedule"},
 		},
-		Resources: []managementResource{
-			{Path: "/panel", Menu: "Codex Health Monitor", Description: "Codex account status, history, and scheduling."},
-		},
+		Resources: []managementResource{{Path: "/panel", Menu: "Codex Health Monitor", Description: "Codex account status, history, and scheduling."}},
 	}
 }
 
@@ -330,21 +333,17 @@ func handleManagement(req managementRequest) managementResponse {
 	path := normalizeManagementPath(req.Path)
 	switch {
 	case req.Method == http.MethodGet && isPanelPath(path):
-		return managementResponse{
-			StatusCode: http.StatusOK,
-			Headers:    map[string][]string{"Content-Type": {"text/html; charset=utf-8"}, "Cache-Control": {"no-store"}},
-			Body:       []byte(panelHTML),
-		}
+		return managementResponse{StatusCode: http.StatusOK, Headers: map[string][]string{"Content-Type": {"text/html; charset=utf-8"}, "Cache-Control": {"no-store"}}, Body: []byte(panelHTML)}
 	case req.Method == http.MethodGet && path == "/status":
 		return jsonResponse(http.StatusOK, rt.Status())
 	case req.Method == http.MethodGet && path == "/accounts":
-		accounts, err := rt.Accounts()
+		accounts, err := rt.ManagedAccounts()
 		if err != nil {
 			return jsonResponse(http.StatusBadGateway, map[string]any{"error": "unable to list Codex accounts"})
 		}
 		return jsonResponse(http.StatusOK, map[string]any{"accounts": accounts})
 	case req.Method == http.MethodGet && path == "/history":
-		return jsonResponse(http.StatusOK, map[string]any{"history": rt.History()})
+		return jsonResponse(http.StatusOK, map[string]any{"history": rt.ManagedHistory()})
 	case req.Method == http.MethodPost && path == "/run":
 		var input struct {
 			Wait bool `json:"wait"`
@@ -352,7 +351,7 @@ func handleManagement(req managementRequest) managementResponse {
 		if len(req.Body) > 0 && json.Unmarshal(req.Body, &input) != nil {
 			return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
 		}
-		done, err := rt.StartRun("manual")
+		done, err := rt.StartManagedManualRun()
 		if errors.Is(err, ErrRunInProgress) {
 			return jsonResponse(http.StatusConflict, map[string]any{"error": "a health check is already running"})
 		}
@@ -365,35 +364,23 @@ func handleManagement(req managementRequest) managementResponse {
 		}
 		return jsonResponse(http.StatusAccepted, map[string]any{"started": true})
 	case req.Method == http.MethodGet && path == "/schedule":
-		return jsonResponse(http.StatusOK, rt.ScheduleStatus())
+		return jsonResponse(http.StatusOK, rt.ManagedScheduleStatus())
 	case req.Method == http.MethodPost && path == "/schedule":
-		var schedule ScheduleConfig
+		var schedule ManagedConfig
 		if err := json.Unmarshal(req.Body, &schedule); err != nil {
 			return jsonResponse(http.StatusBadRequest, map[string]any{"error": "invalid schedule JSON"})
 		}
-		if err := rt.UpdateSchedule(schedule); err != nil {
+		if err := rt.UpdateManagedSchedule(schedule); err != nil {
 			return jsonResponse(http.StatusBadRequest, map[string]any{"error": err.Error()})
 		}
-		return jsonResponse(http.StatusOK, rt.ScheduleStatus())
+		return jsonResponse(http.StatusOK, rt.ManagedScheduleStatus())
 	default:
 		return jsonResponse(http.StatusNotFound, map[string]any{"error": "route not found"})
 	}
 }
 
-// knownManagementPrefixes lists host-side prefixes whose next path segment is
-// always the runtime plugin ID. The ID comes from the shared library file name,
-// so it is not necessarily pluginName (codex-health-monitor-linux-arm64.so
-// yields the ID "codex-health-monitor-linux-arm64"). Dropping that whole
-// segment keeps routing correct however the library was named on disk.
-var knownManagementPrefixes = []string{
-	"/v0/resource/plugins/",
-	"/v0/management/plugins/",
-	"/plugins/",
-	"/v0/management/",
-}
+var knownManagementPrefixes = []string{"/v0/resource/plugins/", "/v0/management/plugins/", "/plugins/", "/v0/management/"}
 
-// normalizeManagementPath reduces a host-supplied request path to the plugin
-// relative path, for example "/status" or "/panel".
 func normalizeManagementPath(rawPath string) string {
 	path := strings.TrimSpace(rawPath)
 	if cut := strings.IndexAny(path, "?#"); cut >= 0 {
@@ -421,8 +408,6 @@ func normalizeManagementPath(rawPath string) string {
 	return path
 }
 
-// isPanelPath reports whether a normalized path should serve the panel page.
-// "/0" covers hosts or UI routes that address the resource by menu index.
 func isPanelPath(path string) bool {
 	switch path {
 	case "/", "/panel", "/index.html", "/0":
@@ -473,11 +458,7 @@ func jsonResponse(status int, value any) managementResponse {
 		status = http.StatusInternalServerError
 		raw = []byte(`{"error":"failed to encode response"}`)
 	}
-	return managementResponse{
-		StatusCode: status,
-		Headers:    map[string][]string{"Content-Type": {"application/json; charset=utf-8"}, "Cache-Control": {"no-store"}},
-		Body:       raw,
-	}
+	return managementResponse{StatusCode: status, Headers: map[string][]string{"Content-Type": {"application/json; charset=utf-8"}, "Cache-Control": {"no-store"}}, Body: raw}
 }
 
 func callHost(method string, request any, result any) error {
