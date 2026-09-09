@@ -14,6 +14,9 @@ var panelQuotaRuntimeStyle string
 //go:embed panel_v5_style.html
 var panelV5Style string
 
+//go:embed panel_simulator_only_style.html
+var panelSimulatorOnlyStyle string
+
 //go:embed panel_markup.html
 var panelMarkup string
 
@@ -38,7 +41,10 @@ var panelScript6 string
 //go:embed panel_script_7.js
 var panelScript7 string
 
+//go:embed panel_script_8.js
+var panelScript8 string
+
 //go:embed panel_tail.html
 var panelTail string
 
-var panelHTML = panelStyle + panelAdaptiveStyle + panelQuotaRuntimeStyle + panelV5Style + panelMarkup + panelScript1 + panelScript2 + panelScript3 + panelScript4 + panelScript5 + panelScript6 + panelScript7 + panelTail
+var panelHTML = panelStyle + panelAdaptiveStyle + panelQuotaRuntimeStyle + panelV5Style + panelSimulatorOnlyStyle + panelMarkup + panelScript1 + panelScript2 + panelScript3 + panelScript4 + panelScript5 + panelScript6 + panelScript7 + panelScript8 + panelTail
