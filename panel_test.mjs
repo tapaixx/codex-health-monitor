@@ -3,7 +3,10 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const script = [1,2,3].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8')).join('');
+const scripts = [1,2,3,4].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
+const eventStart = scripts[2].indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')");
+const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3];
+const adaptiveStyle = readFileSync(new URL('./panel_adaptive_style.html', import.meta.url),'utf8');
 
 function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
   const elements = new Map();
@@ -31,7 +34,7 @@ function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
       return elements.get(id);
     }},
   });
-  vm.runInContext(script.slice(0, script.indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')")), context);
+  vm.runInContext(testScript, context);
   return {elements, run: code => vm.runInContext(code, context)};
 }
 
@@ -144,4 +147,19 @@ test('quota is hidden until manual refresh cache exists, then renders quota and 
   assert.match(html, /class="reset-cell"/);
   assert.match(html, /重置额度/);
   assert.equal((html.match(/<td/g) || []).length, 11);
+});
+
+test('panel loading has timeout cancellation and partial-result recovery', () => {
+  assert.match(scripts[3], /AbortController/);
+  assert.match(scripts[3], /Promise\.allSettled/);
+  assert.match(scripts[3], /lastLoadHadError/);
+  assert.match(scripts[3], /visibilitychange/);
+});
+
+test('adaptive stylesheet follows manager themes and turns mobile tables into cards', () => {
+  assert.match(adaptiveStyle, /data-theme="dark"/);
+  assert.match(adaptiveStyle, /data-theme="white"/);
+  assert.match(adaptiveStyle, /@media\(max-width:720px\)/);
+  assert.match(adaptiveStyle, /accounts-quota-table/);
+  assert.match(adaptiveStyle, /timeline-card\{overflow-x:auto/);
 });
