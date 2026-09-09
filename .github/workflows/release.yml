@@ -4,10 +4,12 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "release/v*"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "要发布或回填资产的 Release tag，例如 v0.1.11"
+        description: "要发布或回填资产的 Release tag，例如 v0.1.11 或 v0.1.11-rc.1"
         required: true
         type: string
 
@@ -20,6 +22,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -34,20 +38,36 @@ jobs:
           INPUT_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
+
+          target_sha="${GITHUB_SHA}"
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             tag="${INPUT_TAG}"
-          else
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_REF_NAME}" == release/v* ]]; then
+            tag="${GITHUB_REF_NAME#release/}"
+            # release/v* 分支只用于触发发布；真正的 Release tag 指向其父提交。
+            target_sha="$(git rev-parse HEAD^)"
+          else
+            echo "Unsupported release trigger: ${GITHUB_REF}" >&2
+            exit 1
           fi
 
-          if [[ ! "${tag}" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
+          if [[ ! "${tag}" =~ ^v[0-9]+(\.[0-9]+)+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
             echo "Invalid release tag: ${tag}" >&2
             exit 1
           fi
 
           version="${tag#v}"
+          prerelease=false
+          if [[ "${version}" == *-* ]]; then
+            prerelease=true
+          fi
+
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+          echo "target_sha=${target_sha}" >> "${GITHUB_OUTPUT}"
 
       - name: Build Linux shared libraries
         shell: bash
@@ -97,6 +117,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          TARGET_SHA: ${{ steps.version.outputs.target_sha }}
         run: |
           set -euo pipefail
 
@@ -114,14 +136,23 @@ jobs:
           )
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            # 对已有 Release（例如 v0.1.11）只回填/更新插件商店资产，
-            # 不覆盖原有裸 .so 下载文件。
+            # 对已有 Release 只回填/更新插件商店资产，不覆盖裸 .so 下载文件。
             gh release upload "${TAG}" "${store_assets[@]}" --clobber
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              gh release edit "${TAG}" --prerelease
+            fi
           else
+            release_flags=(
+              --target "${TARGET_SHA}"
+              --title "${TAG}"
+              --generate-notes
+            )
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              release_flags+=(--prerelease)
+            fi
+
             gh release create "${TAG}" \
               "${store_assets[@]}" \
               "${raw_assets[@]}" \
-              --target "${GITHUB_SHA}" \
-              --title "${TAG}" \
-              --generate-notes
+              "${release_flags[@]}"
           fi
