@@ -26,7 +26,7 @@ function ensureSimulatorHealthUI(){
   if(!document.getElementById('simulatorHealthStyles')&&typeof document.createElement==='function'&&document.head){
     const style=document.createElement('style');
     style.id='simulatorHealthStyles';
-    style.textContent='.strategy-health{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:10px}.strategy-health-badge{display:inline-flex;align-items:center;min-height:21px;border-radius:999px;padding:2px 7px;font-weight:760}.strategy-health.healthy .strategy-health-badge{color:#08794f;background:var(--green2)}.strategy-health.risk .strategy-health-badge{color:#c92525;background:var(--red2)}.strategy-health-detail{color:var(--muted)}.strategy.health-risk{border-color:#efb7b7;background:var(--red2)}.strategy.health-ok{border-color:#b9dfcf}@media(max-width:720px){.strategy-health{align-items:flex-start}.strategy-health-detail{width:100%}}';
+    style.textContent='.strategy-health{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:10px}.strategy-health-badge{display:inline-flex;align-items:center;min-height:21px;border-radius:999px;padding:2px 7px;font-weight:760}.strategy-health.healthy .strategy-health-badge{color:#08794f;background:var(--green2)}.strategy-health.risk .strategy-health-badge{color:#c92525;background:var(--red2)}.strategy-health-detail{color:var(--muted)}.strategy.health-risk{border-color:#efb7b7}.strategy.health-ok{border-color:#b9dfcf}@media(max-width:720px){.strategy-health{align-items:flex-start}.strategy-health-detail{width:100%}}';
     document.head.appendChild(style);
   }
 }
