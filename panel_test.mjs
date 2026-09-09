@@ -82,3 +82,44 @@ test('window labels show actual anchored time ranges', () => {
   assert.equal(p.run('windowRangeText(840,1140)'), '14:00–19:00');
   assert.equal(p.run('windowRangeText(1260,1560)'), '21:00–次日 02:00');
 });
+
+test('quota parser prefers shared 5H and 7D auth-file signals', () => {
+  const p = panel();
+  const windows = p.run(`quotaWindowsForEntry({quota:{observed_at:'2026-09-09T10:00:00Z',signals:{
+    'X-Codex-Secondary-Used-Percent':'18',
+    'X-Codex-Secondary-Window-Minutes':'300',
+    'X-Codex-Secondary-Reset-After-Seconds':'3600',
+    'X-Codex-Primary-Used-Percent':'47',
+    'X-Codex-Primary-Window-Minutes':'10080',
+    'X-Codex-Primary-Reset-After-Seconds':'7200'
+  }}})`);
+  assert.equal(windows.length, 2);
+  assert.equal(windows[0].minutes, 300);
+  assert.equal(Math.round(windows[0].remaining), 82);
+  assert.equal(windows[1].minutes, 10080);
+  assert.equal(Math.round(windows[1].remaining), 53);
+});
+
+test('account table keeps quota and reset information in separate columns', () => {
+  const p = panel();
+  p.run(`renderAccounts(mergeQuotaAccounts([
+    {email:'user@example.com',auth_index:'idx-1',account_id:'acct-1',status:'healthy',healthy:true}
+  ],[
+    {provider:'codex',auth_index:'idx-1',quota:{observed_at:'2026-09-09T10:00:00Z',signals:{
+      'X-Codex-Primary-Used-Percent':'18',
+      'X-Codex-Primary-Window-Minutes':'300',
+      'X-Codex-Primary-Reset-At':'1788951000',
+      'X-Codex-Secondary-Used-Percent':'47',
+      'X-Codex-Secondary-Window-Minutes':'10080',
+      'X-Codex-Secondary-Reset-At':'1789555800'
+    },reset_credits:[{expires_at_ms:1789641600000},{expires_at_ms:1789814400000}]}}
+  ]))`);
+  const html = p.elements.get('accounts').innerHTML;
+  assert.match(html, /class="quota-cell"/);
+  assert.match(html, />5H</);
+  assert.match(html, />82%/);
+  assert.match(html, />7D</);
+  assert.match(html, />53%/);
+  assert.match(html, /class="reset-cell"/);
+  assert.equal((html.match(/<td/g) || []).length, 11);
+});
