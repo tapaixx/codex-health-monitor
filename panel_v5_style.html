@@ -1,0 +1,68 @@
+<style id="chm-v5-ui">
+.accounts-card .table-wrap{overflow:visible}
+.accounts-card .accounts-quota-table{width:100%;min-width:0!important;table-layout:fixed}
+.accounts-card .accounts-quota-table th,.accounts-card .accounts-quota-table td{padding:8px 7px}
+.accounts-card .accounts-quota-table th:nth-child(1){width:4%}
+.accounts-card .accounts-quota-table th:nth-child(2){width:14%}
+.accounts-card .accounts-quota-table th:nth-child(3){width:8%}
+.accounts-card .accounts-quota-table th:nth-child(4){width:8%}
+.accounts-card .accounts-quota-table th:nth-child(5){width:9%}
+.accounts-card .accounts-quota-table th:nth-child(6){width:20%}
+.accounts-card .accounts-quota-table th:nth-child(7){width:11%}
+.accounts-card .accounts-quota-table th:nth-child(8){width:5%}
+.accounts-card .accounts-quota-table th:nth-child(9){width:6%}
+.accounts-card .accounts-quota-table th:nth-child(10){width:9%}
+.accounts-card .accounts-quota-table th:nth-child(11){width:6%}
+.accounts-card .accounts-quota-table th[data-quota-column],.accounts-card .quota-cell,.accounts-card .reset-cell{min-width:0!important}
+.accounts-card .account-email,.accounts-card .mono,.accounts-card .date,.accounts-card .error{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.accounts-card .error{max-width:none}
+.accounts-card .quota-stack{min-width:0!important;width:100%}
+.accounts-card .quota-row{grid-template-columns:26px minmax(34px,1fr) 34px minmax(62px,72px)!important;gap:5px!important}
+.accounts-card .quota-reset{white-space:normal}
+.timeline-row+.timeline-row{margin-top:18px}
+.privacy-toggle{width:38px;padding:0}
+.privacy-toggle.is-masked{color:var(--blue);background:var(--blue2)}
+
+@media(max-width:1100px){
+  .accounts-card .table-wrap{overflow:visible!important;border:0;background:transparent;box-shadow:none}
+  .accounts-card .accounts-quota-table{display:block;width:100%;min-width:0!important;table-layout:auto}
+  .accounts-card .accounts-quota-table thead{display:none}
+  .accounts-card .accounts-quota-table tbody{display:grid;gap:8px}
+  .accounts-card .accounts-quota-table tbody tr{display:block;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 10px;box-shadow:var(--shadow)}
+  .accounts-card .accounts-quota-table tbody tr:hover{background:var(--surface)}
+  .accounts-card .accounts-quota-table td{display:grid;grid-template-columns:92px minmax(0,1fr);gap:9px;align-items:start;width:100%;padding:6px 0;border:0;text-align:left}
+  .accounts-card .accounts-quota-table td::before{align-self:start;color:var(--muted);font-size:10px;font-weight:760;text-transform:uppercase;letter-spacing:.02em}
+  .accounts-card .accounts-quota-table td:nth-child(1)::before{content:"生效"}
+  .accounts-card .accounts-quota-table td:nth-child(2)::before{content:"账号"}
+  .accounts-card .accounts-quota-table td:nth-child(3)::before{content:"Auth index"}
+  .accounts-card .accounts-quota-table td:nth-child(4)::before{content:"账号 ID"}
+  .accounts-card .accounts-quota-table td:nth-child(5)::before{content:"状态"}
+  .accounts-card .accounts-quota-table td:nth-child(6)::before{content:"额度信息"}
+  .accounts-card .accounts-quota-table td:nth-child(7)::before{content:"重置信息"}
+  .accounts-card .accounts-quota-table td:nth-child(8)::before{content:"HTTP"}
+  .accounts-card .accounts-quota-table td:nth-child(9)::before{content:"耗时"}
+  .accounts-card .accounts-quota-table td:nth-child(10)::before{content:"最近检测"}
+  .accounts-card .accounts-quota-table td:nth-child(11)::before{content:"错误原因"}
+  .accounts-card .accounts-quota-table td.empty{display:block;padding:24px 8px;height:auto;text-align:center}
+  .accounts-card .accounts-quota-table td.empty::before{content:none}
+  .accounts-card .select-cell{text-align:left}
+  .accounts-card .quota-row{grid-template-columns:28px minmax(56px,1fr) 36px 76px!important}
+}
+
+@media(max-width:720px){
+  .accounts-card .actions{grid-template-columns:1fr 1fr auto auto!important}
+  .accounts-card .actions #quotaRefreshAll{grid-column:1/-1;grid-row:1}
+  .accounts-card .actions #selectAll{grid-column:1;grid-row:2}
+  .accounts-card .actions #selectNone{grid-column:2;grid-row:2}
+  .accounts-card .actions #privacyToggle{grid-column:3;grid-row:2}
+  .accounts-card .actions #refresh{grid-column:4;grid-row:2}
+  .accounts-card .actions #run{grid-column:1/-1;grid-row:3;width:100%}
+  .accounts-card .accounts-quota-table td{grid-template-columns:84px minmax(0,1fr)}
+  .timeline-row+.timeline-row{margin-top:22px}
+}
+
+@media(max-width:390px){
+  .accounts-card .actions{grid-template-columns:1fr 1fr auto auto!important}
+  .accounts-card .accounts-quota-table td{grid-template-columns:74px minmax(0,1fr)}
+}
+</style>
