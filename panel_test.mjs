@@ -3,9 +3,9 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const scripts = [1,2,3,4,5].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
+const scripts = [1,2,3,4,5,6].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
 const eventStart = scripts[2].indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')");
-const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3] + scripts[4];
+const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3] + scripts[4] + scripts[5];
 const adaptiveStyle = readFileSync(new URL('./panel_adaptive_style.html', import.meta.url),'utf8');
 
 function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
@@ -78,6 +78,24 @@ test('dirty simulator state enables save and clean state disables it', () => {
   p.run('markDirty()');
   assert.equal(p.elements.get('saveWindow').disabled, false);
   assert.equal(p.elements.get('simDirty').classList.contains('show'), true);
+});
+
+test('simulator health threshold classifies coverage without changing optimization inputs', () => {
+  const p = panel();
+  const healthy = p.run('simulatorHealthAssessment(420,510,80)');
+  assert.equal(healthy.healthy, true);
+  assert.equal(healthy.label, '健康');
+  assert.equal(healthy.coverage, 82.4);
+  assert.equal(healthy.threshold, 80);
+
+  const risk = p.run('simulatorHealthAssessment(300,510,80)');
+  assert.equal(risk.healthy, false);
+  assert.equal(risk.label, '风险');
+  assert.equal(risk.coverage, 58.8);
+
+  const boundary = p.run('simulatorHealthAssessment(408,510,80)');
+  assert.equal(boundary.healthy, true);
+  assert.equal(boundary.coverage, 80);
 });
 
 test('window labels show actual anchored time ranges', () => {
