@@ -6,6 +6,7 @@ ARG TARGET_GOARCH=arm64
 WORKDIR /src
 COPY go.mod ./
 COPY *.go ./
+COPY panel_*.html panel_script_*.js ./
 RUN go test ./...
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGET_GOARCH} go build \
     -buildmode=c-shared -trimpath \
