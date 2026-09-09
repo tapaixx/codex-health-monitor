@@ -16,10 +16,15 @@ function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
           textContent: '',
           innerHTML: '',
           disabled: false,
+          style: {},
           classList: {
             add: (...names) => names.forEach(name => classes.add(name)),
             remove: (...names) => names.forEach(name => classes.delete(name)),
             contains: name => classes.has(name),
+            toggle: (name, force) => {
+              if (force === undefined ? !classes.has(name) : force) classes.add(name);
+              else classes.delete(name);
+            },
           },
         });
       }
@@ -69,4 +74,11 @@ test('dirty simulator state enables save and clean state disables it', () => {
   p.run('markDirty()');
   assert.equal(p.elements.get('saveWindow').disabled, false);
   assert.equal(p.elements.get('simDirty').classList.contains('show'), true);
+});
+
+test('window labels show actual anchored time ranges', () => {
+  const p = panel();
+  assert.equal(p.run('windowRangeText(330,630)'), '05:30–10:30');
+  assert.equal(p.run('windowRangeText(840,1140)'), '14:00–19:00');
+  assert.equal(p.run('windowRangeText(1260,1560)'), '21:00–次日 02:00');
 });
