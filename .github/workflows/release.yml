@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "要发布或回填资产的 Release tag，例如 v0.1.11 或 v0.1.11-rc.1"
+        description: "要发布或回填资产的 Release tag，例如 v0.1.11、v0.1.11-5 或 v0.1.11-rc.1"
         required: true
         type: string
 
@@ -51,7 +51,12 @@ jobs:
           version="${tag#v}"
           prerelease=false
           if [[ "${version}" == *-* ]]; then
-            prerelease=true
+            suffix="${version#*-}"
+            # Numeric-only suffixes are stable packaging revisions (for
+            # example 0.1.11-5). Named/compound suffixes remain prereleases.
+            if [[ ! "${suffix}" =~ ^[0-9]+$ ]]; then
+              prerelease=true
+            fi
           fi
 
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
@@ -126,9 +131,7 @@ jobs:
           if gh release view "${TAG}" >/dev/null 2>&1; then
             # 对已有 Release 只回填/更新插件商店资产，不覆盖裸 .so 下载文件。
             gh release upload "${TAG}" "${store_assets[@]}" --clobber
-            if [[ "${PRERELEASE}" == "true" ]]; then
-              gh release edit "${TAG}" --prerelease
-            fi
+            gh release edit "${TAG}" --prerelease="${PRERELEASE}"
           else
             release_flags=(
               --target "${GITHUB_SHA}"
