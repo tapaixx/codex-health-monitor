@@ -29,7 +29,10 @@ var panelScript4 string
 //go:embed panel_script_5.js
 var panelScript5 string
 
+//go:embed panel_script_6.js
+var panelScript6 string
+
 //go:embed panel_tail.html
 var panelTail string
 
-var panelHTML = panelStyle + panelAdaptiveStyle + panelQuotaRuntimeStyle + panelMarkup + panelScript1 + panelScript2 + panelScript3 + panelScript4 + panelScript5 + panelTail
+var panelHTML = panelStyle + panelAdaptiveStyle + panelQuotaRuntimeStyle + panelMarkup + panelScript1 + panelScript2 + panelScript3 + panelScript4 + panelScript5 + panelScript6 + panelTail
