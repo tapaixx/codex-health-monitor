@@ -20,6 +20,9 @@ jobs:
         with:
           go-version: "1.24.x"
 
+      - name: Panel tests
+        run: node --test panel_test.mjs
+
       - name: Test
         run: go test ./...
 

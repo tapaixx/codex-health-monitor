@@ -83,43 +83,65 @@ test('window labels show actual anchored time ranges', () => {
   assert.equal(p.run('windowRangeText(1260,1560)'), '21:00–次日 02:00');
 });
 
-test('quota parser prefers shared 5H and 7D auth-file signals', () => {
+test('native Codex usage parser classifies 5H and 7D by window duration', () => {
   const p = panel();
-  const windows = p.run(`quotaWindowsForEntry({quota:{observed_at:'2026-09-09T10:00:00Z',signals:{
-    'X-Codex-Secondary-Used-Percent':'18',
-    'X-Codex-Secondary-Window-Minutes':'300',
-    'X-Codex-Secondary-Reset-After-Seconds':'3600',
-    'X-Codex-Primary-Used-Percent':'47',
-    'X-Codex-Primary-Window-Minutes':'10080',
-    'X-Codex-Primary-Reset-After-Seconds':'7200'
-  }}})`);
+  const windows = p.run(`codexQuotaWindowsFromUsage({rate_limit:{
+    primary_window:{used_percent:47,limit_window_seconds:604800,reset_at:1789555800},
+    secondary_window:{used_percent:18,limit_window_seconds:18000,reset_at:1788951000}
+  }},1788948000000)`);
   assert.equal(windows.length, 2);
-  assert.equal(windows[0].minutes, 300);
+  assert.equal(Math.round(windows[0].minutes), 300);
   assert.equal(Math.round(windows[0].remaining), 82);
-  assert.equal(windows[1].minutes, 10080);
+  assert.equal(Math.round(windows[1].minutes), 10080);
   assert.equal(Math.round(windows[1].remaining), 53);
 });
 
-test('account table keeps quota and reset information in separate columns', () => {
+test('reset-credit parser keeps only available Codex rate-limit credits', () => {
   const p = panel();
-  p.run(`renderAccounts(mergeQuotaAccounts([
-    {email:'user@example.com',auth_index:'idx-1',account_id:'acct-1',status:'healthy',healthy:true}
-  ],[
-    {provider:'codex',auth_index:'idx-1',quota:{observed_at:'2026-09-09T10:00:00Z',signals:{
-      'X-Codex-Primary-Used-Percent':'18',
-      'X-Codex-Primary-Window-Minutes':'300',
-      'X-Codex-Primary-Reset-At':'1788951000',
-      'X-Codex-Secondary-Used-Percent':'47',
-      'X-Codex-Secondary-Window-Minutes':'10080',
-      'X-Codex-Secondary-Reset-At':'1789555800'
-    },reset_credits:[{expires_at_ms:1789641600000},{expires_at_ms:1789814400000}]}}
-  ]))`);
-  const html = p.elements.get('accounts').innerHTML;
-  assert.match(html, /class="quota-cell"/);
+  const summary = p.run(`normalizeCodexResetCredits({
+    available_count:3,
+    applicable_available_count:2,
+    credits:[
+      {id:'a',reset_type:'codex_rate_limits',status:'available',expires_at:'2026-09-16T00:00:00Z'},
+      {id:'b',reset_type:'codex_rate_limits',status:'consumed',expires_at:'2026-09-18T00:00:00Z'},
+      {id:'c',reset_type:'other',status:'available',expires_at:'2026-09-19T00:00:00Z'},
+      {id:'d',reset_type:'codex_rate_limits',status:'available',expires_at:'2026-09-19T00:00:00Z'}
+    ]
+  })`);
+  assert.equal(summary.availableCount, 3);
+  assert.equal(summary.applicableAvailableCount, 2);
+  assert.equal(summary.credits.length, 2);
+  assert.equal(summary.credits[0].id, 'a');
+  assert.equal(summary.credits[1].id, 'd');
+});
+
+test('quota is hidden until manual refresh cache exists, then renders quota and reset columns', () => {
+  const p = panel();
+  p.run(`renderAccounts([{email:'user@example.com',auth_index:'idx-1',account_id:'acct-1',status:'healthy',healthy:true}])`);
+  let html = p.elements.get('accounts').innerHTML;
+  assert.match(html, /刷新额度/);
+  assert.doesNotMatch(html, />5H</);
+  assert.doesNotMatch(html, /重置额度/);
+  assert.equal((html.match(/<td/g) || []).length, 11);
+
+  p.run(`quotaCache.set('idx-1',{
+    status:'success',fetchedAt:1788948000000,
+    windows:[
+      {minutes:300,remaining:82,resetAt:1788951000000},
+      {minutes:10080,remaining:53,resetAt:1789555800000}
+    ],
+    resetAvailableCount:2,resetApplicableCount:2,
+    resetCredits:[
+      {id:'a',expiresAtMs:1789516800000},
+      {id:'b',expiresAtMs:1789776000000}
+    ]
+  });renderAccounts(currentAccounts)`);
+  html = p.elements.get('accounts').innerHTML;
   assert.match(html, />5H</);
   assert.match(html, />82%/);
   assert.match(html, />7D</);
   assert.match(html, />53%/);
   assert.match(html, /class="reset-cell"/);
+  assert.match(html, /重置额度/);
   assert.equal((html.match(/<td/g) || []).length, 11);
 });
