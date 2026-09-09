@@ -3,10 +3,11 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const scripts = [1,2,3,4,5,6].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
+const scripts = [1,2,3,4,5,6,7].map(i=>readFileSync(new URL(`./panel_script_${i}.js`, import.meta.url),'utf8'));
 const eventStart = scripts[2].indexOf("document.querySelectorAll('input[name=\"scheduleMode\"]')");
-const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3] + scripts[4] + scripts[5];
+const testScript = scripts[0] + scripts[1] + scripts[2].slice(0,eventStart) + scripts[3] + scripts[4] + scripts[5] + scripts[6];
 const adaptiveStyle = readFileSync(new URL('./panel_adaptive_style.html', import.meta.url),'utf8');
+const v5Style = readFileSync(new URL('./panel_v5_style.html', import.meta.url),'utf8');
 
 function panel(pathname = '/v0/resource/plugins/codex-health-monitor/panel') {
   const elements = new Map();
@@ -180,6 +181,29 @@ test('failed server refresh keeps cached quota visible with retry state', () => 
   assert.match(html, />重试</);
 });
 
+test('privacy helpers mask account identifiers and sensitive error fragments', () => {
+  const p = panel();
+  assert.equal(p.run(`maskEmail('alex@example.com')`), 'a***@e***.com');
+  assert.equal(p.run(`maskIdentifier('auth-index-1234567890')`), 'auth••••7890');
+  const text = p.run(`maskSensitiveText('user@example.com request_abcdef123456 0123456789abcdef01234567')`);
+  assert.doesNotMatch(text, /user@example\.com/);
+  assert.doesNotMatch(text, /request_abcdef123456/);
+  assert.doesNotMatch(text, /0123456789abcdef01234567/);
+  assert.equal(p.run('panelPrivacyState().masked'), true);
+});
+
+test('account rendering masks visible email, auth index, account id and error by default', () => {
+  const p = panel();
+  p.run(`renderAccounts([{email:'alex@example.com',auth_index:'auth-index-1234567890',account_id:'acct_1234567890abcdef',status:'request_error',error_message:'Failed for alex@example.com account_1234567890'}])`);
+  const html = p.elements.get('accounts').innerHTML;
+  assert.match(html, /a\*\*\*@e\*\*\*\.com/);
+  assert.match(html, /auth••••7890/);
+  assert.match(html, /acct••••cdef/);
+  assert.doesNotMatch(html, />alex@example\.com</);
+  assert.doesNotMatch(html, />auth-index-1234567890</);
+  assert.doesNotMatch(html, />acct_1234567890abcdef</);
+});
+
 test('panel loading has timeout cancellation and partial-result recovery', () => {
   assert.match(scripts[3], /AbortController/);
   assert.match(scripts[3], /Promise\.allSettled/);
@@ -199,4 +223,12 @@ test('adaptive stylesheet follows manager themes and turns mobile tables into ca
   assert.match(adaptiveStyle, /@media\(max-width:720px\)/);
   assert.match(adaptiveStyle, /accounts-quota-table/);
   assert.match(adaptiveStyle, /timeline-card\{overflow-x:auto/);
+});
+
+test('v5 layout removes desktop account-table minimum width and increases timeline spacing', () => {
+  assert.match(v5Style, /accounts-quota-table\{width:100%;min-width:0!important;table-layout:fixed/);
+  assert.match(v5Style, /@media\(max-width:1100px\)/);
+  assert.match(v5Style, /timeline-row\+\.timeline-row\{margin-top:18px\}/);
+  assert.match(scripts[6], /单窗口预计可用时长（分钟）/);
+  assert.match(scripts[6], /privacyToggle/);
 });
