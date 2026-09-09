@@ -4,10 +4,10 @@
     {
       "id": "codex-health-monitor",
       "name": "Codex Health Monitor",
-      "description": "Independently checks CPA Codex credentials with a strict Responses/SSE completion check.",
+      "description": "Codex credential health checks, quota snapshots, reset credits, history, privacy masking, and window-optimized scheduling for CLIProxyAPI.",
       "author": "Cai Feng",
-      "repository": "https://github.com/hg3386628/codex-health-monitor",
-      "homepage": "https://github.com/hg3386628/codex-health-monitor",
+      "repository": "https://github.com/tapaixx/codex-health-monitor",
+      "homepage": "https://github.com/tapaixx/codex-health-monitor",
       "license": "MIT",
       "tags": [
         "Management",

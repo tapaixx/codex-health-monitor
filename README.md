@@ -1,47 +1,108 @@
 # Codex Health Monitor
 
-一个用于 [CLIProxyAPI（CPA）](https://github.com/router-for-me/CLIProxyAPI) 的原生 Go 插件，独立检测每个 Codex 凭证是否可用，并提供账号概览、异常原因、检测历史和自动调度面板。
+> 为 CLIProxyAPI / CPA 提供 Codex 凭证独立健康检测、额度查询、重置额度、检测历史和窗口优化调度的一体化管理插件。
 
-> 当前发布产物面向 `linux/arm64` 和 `linux/amd64`，需要支持标准动态库插件的 CPA 版本。
+[![Latest Release](https://img.shields.io/github/v/release/tapaixx/codex-health-monitor?display_name=tag&sort=semver)](https://github.com/tapaixx/codex-health-monitor/releases/latest)
+[![CI](https://github.com/tapaixx/codex-health-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/tapaixx/codex-health-monitor/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-linux%20amd64%20%7C%20arm64-0f172a)](#安装)
+[![License](https://img.shields.io/badge/license-MIT-16a34a)](LICENSE)
 
-## 功能
+**Codex Health Monitor** 是一个原生 Go 动态库插件。它不依赖浏览器扩展，不接管 CPA 的凭证生命周期，而是通过 CPA 插件 ABI 和 Management API 对每个 Codex 凭证进行独立探测，并提供一个内嵌管理面板。
 
-- 按 `auth_index` 独立检测每个 Codex 凭证，避免账号之间相互影响。
-- 固定使用 `gpt-5.6-luna` 发起最小探测请求。
-- 同时校验 HTTP 状态、完整的 Responses/SSE 流以及最终输出 `OK`。
-- 区分未授权、额度异常、限流、超时、网络错误和上游错误等状态。
-- 支持按分钟间隔或每天固定时间自动检测。
-- 间隔模式的每轮任务会增加 0～5 分钟随机偏移；定时任务中的每个账号还会独立增加 0～5 分钟随机错峰，避免所有账号同时请求上游。手动“立即检测”不增加等待。
-- 支持只检测指定邮箱，历史最多保留 100 次运行记录。
-- 检测历史按账号记录分页，默认每页 10 条，可切换为 20 / 50 条；刷新时保留当前页，记录减少时自动回退到有效页。
-- 账号停用/启用状态实时同步：面板直接读取 CPA 的实时凭证状态，手动停用后立即显示已停用，重新启用后自动撤回过期的停用结果。CPA 的临时不可用标记（配额冷却、重启后 token 未加载等）不再被误判为停用，健康检测仍会照常独立探测，面板额外显示"冷却中"提示。
-- 内置响应式管理页面，适配桌面和手机浏览器。
+它适合需要同时维护多个 Codex 账号、希望快速知道“哪个账号真的可用、哪个账号额度不足、下一次窗口什么时候恢复”的 CPA 部署。
 
-插件只读取探测所需的访问令牌，不会禁用、删除、刷新或改写凭证。令牌不会写入状态、历史、管理接口响应或日志。
+## UI 预览
+
+> 下方 UI 根据当前面板结构生成，用于 README 展示。账号、额度、时间和状态均为示例数据。
+
+### 账号状态与额度
+
+![账号状态与额度](./docs/ui/account-status.svg)
+
+账号表同时展示健康状态、`auth_index`、账号 ID、额度窗口、重置次数、HTTP 状态、耗时和最近检测时间。桌面端自动分配列宽，窄屏会切换为账号卡片；眼睛按钮可一键显示或隐藏敏感信息。
+
+### 窗口优化模拟器
+
+![窗口优化模拟器](./docs/ui/window-simulator.svg)
+
+窗口优化页只保留模拟器本身。可以维护工作时间、窗口周期、单窗口预计可用时长、工作日、时区、健康阈值和锚点，并对策略 A / B 的覆盖率、风险和时间轴进行直观比较。
+
+### 手机端
+
+<p align="center">
+  <img src="./docs/ui/mobile-panel.svg" alt="手机端账号卡片" width="390">
+</p>
+
+手机端使用卡片布局，不需要横向拖动整张账号表；额度、重置信息和错误原因都会在单个账号卡片内纵向展开。
+
+## 核心能力
+
+- **独立健康检测**：按 `auth_index` 对每个 Codex 凭证单独探测，一个账号异常不会污染其他账号的结果。
+- **严格完成判定**：校验 HTTP 状态、Responses/SSE 完整结束以及最终输出，避免把半截响应或异常流误判为健康。
+- **额度查询**：通过 CPA Management API 的 `/api-call` 访问 Codex 原生额度接口，识别 5H / 7D 等窗口并展示剩余额度和重置时间。
+- **额度 Runtime 缓存**：额度快照保存在插件 Runtime 内存，同一 CPA 实例的多个浏览器和设备共享；页面刷新不会丢，CPA/插件重启后自然清空。
+- **无后台轮询**：进入面板时只读取一次插件额度缓存；只有手动刷新单账号、刷新全部或重置额度时才访问上游。
+- **重置次数**：可用 reset credits 按过期时间排序，显示“第一次重置 / 第二次重置 …”，并支持直接消耗一次重置额度。
+- **窗口优化模拟器**：根据工作时间、午休、窗口周期和预计可用时长模拟策略覆盖率，给出推荐锚点和时间轴。
+- **健康阈值提示**：最小健康阈值只负责模拟器中的“健康 / 风险”评价，不改变实际锚点算法和调度行为。
+- **三种调度模式**：支持 `interval`、`daily_times` 和 `window_optimized`。
+- **异常补偿**：窗口优化调度遇到额度受限或瞬态失败时，可在约 5 分钟后执行一次补偿检测。
+- **响应式面板**：桌面端自适应列宽，1100px 以下账号表转卡片，手机端无需横向滚动整表。
+- **主题同步**：跟随 CLIProxyAPI 管理中心的浅色、纯白、深色和系统主题。
+- **隐私脱敏**：默认隐藏邮箱、Auth index、账号 ID，以及通知/错误信息中的常见敏感标识；眼睛按钮可在当前浏览器会话中切换显示状态。
+- **历史记录**：保留最近运行记录并按账号分页展示，便于追踪失败类型和恢复过程。
+
+## 工作方式
+
+```text
+CLIProxyAPI / CPA
+├─ Codex credentials
+├─ Management API
+└─ Codex Health Monitor (.so)
+   ├─ 独立健康探测
+   ├─ Runtime 额度缓存
+   ├─ 自动调度 / 窗口优化
+   ├─ 检测历史
+   └─ 内嵌 Web Panel
+        ├─ 桌面 / 手机自适应
+        ├─ 主题同步
+        └─ 隐私脱敏
+```
+
+插件只读取完成探测和额度查询所需的数据。访问令牌不会写入状态文件、检测历史、面板响应或插件日志。
 
 ## 安装
 
 ### 前置条件
 
-- 一台运行 `linux/arm64` 或 `linux/amd64` 的 CPA 主机。
-- CPA 已配置 Codex 凭证。
-- CPA 的 Management API 已启用，即 `remote-management.secret-key` 非空。
-- 使用预编译文件时不需要在 CPA 主机安装 Go 或 Docker。
+- Linux `amd64` 或 `arm64` 主机。
+- 已运行支持标准动态库插件的 CLIProxyAPI / CPA。
+- CPA 已配置至少一个 Codex 凭证。
+- Management API 已启用，即 `remote-management.secret-key` 非空。
 
-### 使用 Release 产物
+### 方式一：使用 Release 产物
 
-1. 从项目的 [Releases](https://github.com/hg3386628/codex-health-monitor/releases) 页面下载与主机架构匹配的产物：`codex-health-monitor-linux-arm64.so` 或 `codex-health-monitor-linux-amd64.so`。
+从 [Releases](https://github.com/tapaixx/codex-health-monitor/releases/latest) 下载与主机架构匹配的文件：
 
-2. 将动态库复制到 CPA 的插件目录。以下示例假设 CPA 安装在 `/opt/cli-proxy-api`，且 `plugins.dir` 使用默认值 `plugins`：
-
-```bash
-sudo install -D -m 0755 codex-health-monitor-linux-arm64.so \
-  /opt/cli-proxy-api/plugins/linux/arm64/codex-health-monitor.so
+```text
+codex-health-monitor-linux-amd64.so
+codex-health-monitor-linux-arm64.so
 ```
 
-如果主机是 `linux/amd64`，请下载 amd64 产物并安装到 `/opt/cli-proxy-api/plugins/linux/amd64/codex-health-monitor.so`。CPA 会依次查找 `<plugins.dir>/linux/<架构>/` 和 `<plugins.dir>/`。如果你的 `plugins.dir` 是绝对路径，请相应替换上面的目标目录。
+例如 CPA 安装在 `/opt/cli-proxy-api`，`plugins.dir` 使用默认值 `plugins`：
 
-3. 编辑 CPA 的 `config.yaml`，打开全局插件开关并启用本插件：
+```bash
+sudo install -D -m 0755 codex-health-monitor-linux-amd64.so \
+  /opt/cli-proxy-api/plugins/linux/amd64/codex-health-monitor.so
+```
+
+arm64 主机对应安装到：
+
+```text
+/opt/cli-proxy-api/plugins/linux/arm64/codex-health-monitor.so
+```
+
+最小配置示例：
 
 ```yaml
 plugins:
@@ -50,96 +111,47 @@ plugins:
   configs:
     codex-health-monitor:
       enabled: true
-      priority: 1
-      schedule_mode: interval
-      interval_min: 30
-      daily_times: ""
-      timezone: Asia/Shanghai
-      timeout_sec: 30
-      target_emails: ""
 ```
 
-`plugins.enabled` 是全局开关，`plugins.configs.codex-health-monitor.enabled` 是插件实例开关，两者都必须为 `true`。
-
-4. 重启 CPA。使用 systemd 的安装可执行：
+然后重启 CPA：
 
 ```bash
 sudo systemctl restart cli-proxy-api
-sudo systemctl status cli-proxy-api --no-pager
 ```
 
-如果你的服务名不是 `cli-proxy-api`，请替换为实际 unit 名称；直接运行或使用其他进程管理器时，按原方式重启 CPA。
-
-5. 打开 CPA 管理中心，在插件列表中找到 **Codex Health Monitor**，进入插件页面。也可以直接访问：
+进入 CPA 管理中心的插件列表，打开 **Codex Health Monitor**。也可以直接访问：
 
 ```text
 http://<CPA_HOST>:8317/v0/resource/plugins/codex-health-monitor/panel
 ```
 
-首次加载页面会复用 CPA 管理中心中的管理员密钥；密钥失效时，页面会要求重新输入。插件加载后不会立即自动检测，点击“立即检测”可执行第一次检查。
+### 方式二：CLIProxyAPI 插件源
 
-### 通过 CLIProxyAPI 插件源安装
-
-CLIProxyAPI 官方插件仓库和自定义插件源使用统一的 Release 资产格式。插件源中的 `repository` 指向插件 GitHub 仓库后，CPA 会读取该仓库的 latest Release，并根据 Release tag 和当前运行平台选择对应安装包。因此发布新版本时，通常只需要发布新的 Release，不需要同步修改插件源里的版本号。
-
-Release tag 必须使用 `v<version>` 格式，例如：
+仓库发布流程同时生成插件商店兼容资产：
 
 ```text
-v0.1.11
-```
-
-每个受支持的平台需要提供一个 zip，并在同一 Release 中提供统一的 `checksums.txt`。本项目当前支持 Linux amd64 和 arm64，对应资产应为：
-
-```text
-codex-health-monitor_0.1.11_linux_amd64.zip
-codex-health-monitor_0.1.11_linux_arm64.zip
+codex-health-monitor_<version>_linux_amd64.zip
+codex-health-monitor_<version>_linux_arm64.zip
 checksums.txt
 ```
 
-zip 根目录必须直接包含与插件 ID 同名的动态库，不能再套子目录：
+ZIP 根目录直接包含：
 
 ```text
 codex-health-monitor.so
 ```
 
-`checksums.txt` 使用标准 `sha256sum` 格式，并校验平台 zip，而不是裸 `.so`：
+因此自定义插件源只需要让条目的 `repository` 指向：
 
 ```text
-<sha256>  codex-health-monitor_0.1.11_linux_amd64.zip
-<sha256>  codex-health-monitor_0.1.11_linux_arm64.zip
+https://github.com/tapaixx/codex-health-monitor
 ```
 
-仓库中的 `.github/workflows/release.yml` 会在推送 `v*` tag 时自动构建两个 Linux 架构、保留原有裸 `.so` 下载文件，同时生成上述插件商店兼容 zip 和 `checksums.txt`。对于已经存在的 Release，也可以在 GitHub Actions 的 **Release** workflow 中使用 `workflow_dispatch`，输入已有 tag（例如 `v0.1.11`）回填插件商店资产；这种方式不会覆盖现有裸 `.so` 文件。
+CPA 会读取 latest Release，并按当前平台选择对应 ZIP。
 
-自定义插件源可以直接使用仓库根目录的 `registry.json`，其结构如下：
+### Docker 部署
 
-```json
-{
-  "schema_version": 1,
-  "plugins": [
-    {
-      "id": "codex-health-monitor",
-      "name": "Codex Health Monitor",
-      "description": "Independently checks CPA Codex credentials with a strict Responses/SSE completion check.",
-      "author": "Cai Feng",
-      "repository": "https://github.com/hg3386628/codex-health-monitor",
-      "homepage": "https://github.com/hg3386628/codex-health-monitor",
-      "license": "MIT",
-      "tags": [
-        "Management",
-        "Monitoring",
-        "Codex"
-      ]
-    }
-  ]
-}
-```
-
-如果需要将插件提交到 CLIProxyAPI 官方插件仓库，也应确保 latest Release 已包含上述平台 zip 和 `checksums.txt`，否则插件条目即使能被插件源读取，安装阶段仍会因为找不到或无法校验平台资产而失败。
-
-### Docker 部署的 CPA
-
-将插件目录和配置文件挂载到 CPA 容器，并保证容器内目录与 `plugins.dir` 一致：
+把配置和插件目录挂载到 CPA 容器：
 
 ```yaml
 services:
@@ -150,101 +162,112 @@ services:
       - ./plugins:/CLIProxyAPI/plugins
 ```
 
-宿主机上的文件结构应为：
+宿主机目录示例：
 
 ```text
 plugins/
 └── linux/
-    ├── arm64/
+    ├── amd64/
     │   └── codex-health-monitor.so
-    └── amd64/
+    └── arm64/
         └── codex-health-monitor.so
 ```
 
-修改配置并放好动态库后，重建或重启容器：
+## 面板说明
 
-```bash
-docker compose up -d --force-recreate cli-proxy-api
-docker compose logs --tail=100 cli-proxy-api
-```
+### 账号状态
 
-## 配置
+账号状态是日常使用的主视图。每个账号可以看到：
 
-| 字段 | 默认值 | 说明 |
-| --- | --- | --- |
-| `schedule_mode` | `interval` | `interval` 按间隔执行；`daily_times` 按固定时间执行 |
-| `interval_min` | `30` | 检测间隔，范围为 5 到 10080 分钟；实际执行时间会在此间隔上附加 0~5 分钟随机抖动 |
-| `daily_times` | `""` | 逗号分隔的 `HH:mm`，最多 12 个且不能重复 |
-| `timezone` | `Asia/Shanghai` | IANA 时区，例如 `UTC` 或 `Asia/Shanghai` |
-| `timeout_sec` | `30` | 单账号超时，范围为 5 到 120 秒 |
-| `target_emails` | `""` | 逗号分隔的邮箱；留空检测全部 Codex 账号 |
+| 信息 | 说明 |
+| --- | --- |
+| 生效 | 是否参与自动检测和窗口优化计划 |
+| 账号 | Codex 邮箱，默认脱敏 |
+| Auth index | CPA 凭证索引，默认脱敏 |
+| 账号 ID | `Chatgpt-Account-Id`，默认脱敏 |
+| 状态 | 健康、额度受限、未授权、超时、响应异常、停用等 |
+| 额度信息 | 5H / 7D 剩余百分比、窗口重置时间、最后成功更新时间 |
+| 重置信息 | 第一次、第二次等可用 reset credit 及过期时间 |
+| HTTP / 耗时 | 最近一次健康检测结果 |
+| 最近检测 | 最近一次独立探测时间 |
+| 错误原因 | 标准化后的失败信息 |
 
-固定时间示例：
+“刷新全部额度”由插件端并发处理。单个账号失败或超时不会无限拖住其他账号；已有成功额度快照会继续保留，并显示刷新失败状态。
 
-```yaml
-schedule_mode: daily_times
-daily_times: "09:00,13:00,18:00"
-timezone: Asia/Shanghai
-```
+### 额度缓存
 
-间隔模式的随机抖动说明：每次计算下一次执行时间时，会在 `interval_min` 的基础上独立随机附加 0~5 分钟。例如 `interval_min: 30` 时，实际间隔在 30~35 分钟之间浮动，且每次不同。定时任务启动后，每个账号还会独立等待 0~5 分钟再发起探测；因此账号请求会在额外的 5 分钟窗口内错峰，随机延迟可能偶尔接近或相同。面板和 `state.json` 中显示的 `next_run_at` 已包含整轮任务抖动。`daily_times` 模式不对整轮任务附加抖动，但账号级错峰仍然生效；手动“立即检测”不增加账号级等待。
-
-停用状态实时同步说明：`/accounts` 接口和面板会在每次刷新时读取 CPA 当前的凭证启用状态。账号在 CPA 中被手动停用后，面板立即显示"已停用"，无需等待下一次检测；重新启用后，上一轮检测留下的停用结果会被自动撤回并显示"未检测"，直到下一轮检测重新确认。检测历史记录不会因此被改写。
-
-注意：CPA 对凭证还有一个运行时 `unavailable` 标记，表示临时不可用（配额冷却、重启后 token 尚未加载等），它与"手动停用"语义不同。本插件不会把 `unavailable` 当作停用跳过检测——健康监测会照常对该凭证发起独立探测，得出真实结论；面板同时显示一个"冷却中"提示徽章以标注 CPA 侧的临时状态。
-
-面板中保存的调度会写入插件数据目录的 `state.json`，并在后续启动时继续使用。
-
-## 从源码构建
-
-仓库提供的脚本会在 `golang:1.24-bookworm` 容器中运行测试并交叉构建动态库，默认目标为 `linux/arm64`：
-
-```bash
-git clone https://github.com/hg3386628/codex-health-monitor.git
-cd codex-health-monitor
-chmod +x build.sh
-./build.sh
-```
-
-产物位于：
+额度数据的生命周期是：
 
 ```text
-dist/codex-health-monitor-linux-arm64.so
+手动查询额度
+      ↓
+Plugin Runtime 内存
+      ↓
+GET /quota
+      ↓
+任意浏览器 / 手机进入面板时读取
 ```
 
-可通过环境变量覆盖版本、目标架构和 Go 镜像。目标架构支持 `arm64` 和 `amd64`：
+这意味着：
 
-```bash
-VERSION=0.1.11 ARCH=amd64 GO_IMAGE=golang:1.24-bookworm ./build.sh
+- 浏览器刷新不会丢额度。
+- 同一 CPA 实例的多个客户端可以看到相同快照。
+- 面板不会为了“多端同步”而持续轮询。
+- CPA 或插件进程重启后额度缓存清空，下一次手动刷新重新获取真实数据。
+
+### 窗口优化
+
+`window_optimized` 模式使用模拟器管理窗口参数。默认值为：
+
+| 参数 | 默认值 |
+| --- | --- |
+| 窗口周期 | `5` 小时 |
+| 单窗口预计可用时长 | `60` 分钟 |
+| 工作时间 | `09:00–19:00` |
+| 午休 | `12:00–13:30` |
+| 生效星期 | 周一到周五 |
+| 时区 | `Asia/Shanghai` |
+| 算法锚点 | `06:59` |
+| 最小健康阈值 | `80%` |
+
+窗口优化账号的实际执行点会在计划时间上增加 **0–3 分钟**随机错峰，避免多个账号同时打到上游。额度受限或瞬态失败可在约 **5 分钟**后补偿一次。
+
+最小健康阈值只用于模拟器风险提示：
+
+```text
+覆盖率 >= 阈值  →  健康
+覆盖率 <  阈值  →  风险
 ```
 
-构建 arm64：
+它不会参与推荐锚点计算，也不会直接改变实际调度。
 
-`ARCH=arm64 ./build.sh`
+### 隐私与安全
 
-构建 amd64：
+面板默认开启敏感信息脱敏。眼睛按钮可以切换显示/隐藏，并将状态保存在当前浏览器的 `sessionStorage` 中。
 
-`ARCH=amd64 ./build.sh`
+脱敏覆盖：
 
-本机具备 Go 1.24、C 编译器和目标平台 CGO 工具链时，也可以设置 `BUILD_WITH_DOCKER=0`。普通开发测试不需要构建动态库：
+- 邮箱
+- `auth_index`
+- account ID
+- 检测历史中的账号标识
+- 错误提示、额度错误和通知中可识别的邮箱 / UUID / 常见账号或请求 ID
 
-```bash
-go test ./...
-go test -race ./...
-go vet ./...
-```
+插件不会自动删除、停用或刷新 CPA 凭证。
 
 ## 健康判定
 
-账号只有同时满足以下条件才会标记为健康：
+一个账号只有同时满足以下条件才会标记为健康：
 
 1. 上游返回 HTTP 2xx。
-2. Responses/SSE 流完整结束，并包含 `response.completed`。
-3. 去除首尾空白后的输出严格等于 `OK`。
+2. Responses/SSE 流完整结束，并出现完成事件。
+3. 最终响应符合插件预期的最小探测结果。
 
-原始响应只在内存中解析，完成分类后立即丢弃。
+常见失败会被分类为未授权、额度异常、限流、超时、网络错误和上游响应异常等状态。
 
-## 管理接口
+## Management API
+
+插件注册以下管理接口：
 
 ```text
 GET  /v0/management/plugins/codex-health-monitor/status
@@ -253,29 +276,55 @@ GET  /v0/management/plugins/codex-health-monitor/history
 POST /v0/management/plugins/codex-health-monitor/run
 GET  /v0/management/plugins/codex-health-monitor/schedule
 POST /v0/management/plugins/codex-health-monitor/schedule
+GET  /v0/management/plugins/codex-health-monitor/quota
+POST /v0/management/plugins/codex-health-monitor/quota/refresh
+POST /v0/management/plugins/codex-health-monitor/quota/refresh-all
+POST /v0/management/plugins/codex-health-monitor/quota/reset
 ```
 
-向 `run` 接口发送 `{"wait":true}` 可等待本轮检测结束。所有 Management API 请求都需要 CPA 管理员密钥。
+所有 Management API 请求都由 CPA 的管理鉴权保护。
 
-## 升级与卸载
+## 从源码构建
 
-升级前停止 CPA，替换 `codex-health-monitor.so` 后重新启动。动态库已被进程加载时不应直接覆盖。
+默认使用 Docker 中的 Go 工具链构建：
 
-卸载时停止 CPA，删除动态库，并移除 `plugins.configs.codex-health-monitor` 配置块。若不再使用任何插件，也可以将 `plugins.enabled` 设为 `false`。
+```bash
+git clone https://github.com/tapaixx/codex-health-monitor.git
+cd codex-health-monitor
+chmod +x build.sh
+ARCH=amd64 ./build.sh
+```
 
-## 排查
+构建 arm64：
 
-- 插件页面或浏览器控制台显示 `404` / `{"error":"route not found"}`：先停止 CPA，移除旧版动态库并重新启动。v0.1.9 及以上版本会根据 CPA 传入的实际插件 ID 注册管理路由，因此即使文件名带有架构后缀，面板请求也能正确路由；推荐仍将 Release 文件重命名为 `codex-health-monitor.so`，并使用 `plugins.configs.codex-health-monitor`，这样配置和插件 ID 保持一致。
-- 插件没有出现在列表：确认系统架构是 `linux/arm64` 或 `linux/amd64`，并将对应产物重命名为 `codex-health-monitor.so` 放入相应架构目录，同时检查 `plugins.dir` 与实际挂载路径。
-- 插件存在但未启用：确认全局和实例两个 `enabled` 都为 `true`，然后查看 CPA 启动日志。
-- 页面返回 401：重新输入 `remote-management.secret-key` 对应的管理员密钥。
-- 没有账号：确认 CPA 中存在类型为 `codex` 的凭证，并检查 `target_emails` 是否过滤了全部账号。
-- 检测超时：确认 CPA 可以访问 `https://chatgpt.com`，必要时适当增加 `timeout_sec`。
+```bash
+ARCH=arm64 ./build.sh
+```
 
-## 社区
+普通开发测试：
 
-交流、反馈和分享可以前往 [LINUX DO](https://linux.do/)。提交 Bug 时请附上 CPA 版本、CPU 架构和已脱敏的插件日志，切勿公开访问令牌或管理员密钥。
+```bash
+go test ./...
+go test -race ./...
+go vet ./...
+node --test panel_test.mjs
+```
+
+发布工作流会构建 Linux amd64 / arm64，并生成裸 `.so`、插件商店 ZIP、`.sha256` 和 `checksums.txt`。
+
+## 数据与持久化
+
+- **调度配置 / 窗口优化状态**：写入插件数据目录中的 `window-optimizer.json`，CPA 重启后保留。
+- **检测历史**：由插件状态持久化逻辑维护。
+- **额度快照**：仅保存在插件 Runtime 内存，不写磁盘。
+- **浏览器隐私开关**：仅保存在当前会话的 `sessionStorage`。
+
+## 升级
+
+推荐直接安装 latest Release。手动升级时先停止 CPA，替换 `codex-health-monitor.so` 后重新启动。
+
+发布页：<https://github.com/tapaixx/codex-health-monitor/releases>
 
 ## License
 
-[MIT](LICENSE)
+MIT

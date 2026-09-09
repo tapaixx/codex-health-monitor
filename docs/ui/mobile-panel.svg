@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="780" viewBox="0 0 390 780" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Health Monitor 手机端</title>
+  <desc id="desc">深色主题下的手机端账号卡片、额度和重置信息示意图。</desc>
+  <rect width="390" height="780" rx="30" fill="#07111f"/>
+  <rect x="12" y="12" width="366" height="756" rx="23" fill="#0b1220" stroke="#1e293b"/>
+  <rect x="28" y="30" width="334" height="48" rx="12" fill="#111c2e"/>
+  <circle cx="50" cy="54" r="13" fill="#2563eb"/><path d="M42 54h5l3-8 4 16 3-8h6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="72" y="51" fill="#f8fafc" font-size="13" font-weight="750" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Codex Health Monitor</text>
+  <text x="72" y="67" fill="#64748b" font-size="8" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">手机端 · 深色主题</text>
+  <circle cx="340" cy="54" r="5" fill="#22c55e"/>
+
+  <text x="28" y="112" fill="#f8fafc" font-size="17" font-weight="750" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">账号状态</text>
+  <text x="28" y="129" fill="#64748b" font-size="9" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">12 个 Codex 账号 · 已选择 10 个</text>
+  <rect x="286" y="96" width="34" height="30" rx="8" fill="#172554" stroke="#1d4ed8"/><path d="M293 111s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z" fill="none" stroke="#60a5fa" stroke-width="1.5"/><circle cx="303" cy="111" r="2.3" fill="#60a5fa"/>
+  <rect x="328" y="96" width="34" height="30" rx="8" fill="#111827" stroke="#334155"/><path d="M338 111h14M345 104v14" stroke="#94a3b8" stroke-width="1.5"/>
+  <rect x="28" y="145" width="334" height="34" rx="9" fill="#172554"/><text x="120" y="166" fill="#bfdbfe" font-size="10" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">刷新全部额度</text>
+
+  <rect x="28" y="194" width="334" height="510" rx="14" fill="#111827" stroke="#263449"/>
+  <rect x="44" y="213" width="16" height="16" rx="4" fill="#2563eb"/><path d="m48 221 3 3 5-7" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="83" cy="221" r="13" fill="#1e3a8a"/><text x="79" y="225" fill="#bfdbfe" font-size="10" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">•</text>
+  <text x="104" y="219" fill="#f8fafc" font-size="12" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">al***@e***.com</text>
+  <rect x="104" y="229" width="47" height="20" rx="10" fill="#052e25"/><text x="116" y="243" fill="#4ade80" font-size="9" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">健康</text>
+
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <text x="44" y="279" fill="#64748b" font-size="9" font-weight="700">AUTH INDEX</text><text x="151" y="279" fill="#cbd5e1" font-size="10">aut••••42a9</text>
+    <text x="44" y="307" fill="#64748b" font-size="9" font-weight="700">账号 ID</text><text x="151" y="307" fill="#cbd5e1" font-size="10">acct••••7f21</text>
+    <line x1="44" y1="324" x2="346" y2="324" stroke="#263449"/>
+    <text x="44" y="350" fill="#94a3b8" font-size="9" font-weight="700">额度信息</text>
+    <text x="44" y="380" fill="#cbd5e1" font-size="10" font-weight="700">5H</text><rect x="78" y="371" width="145" height="10" rx="5" fill="#263449"/><rect x="78" y="371" width="119" height="10" rx="5" fill="#22c55e"/><text x="235" y="380" fill="#4ade80" font-size="10" font-weight="700">82%</text><text x="279" y="380" fill="#94a3b8" font-size="9">21:50</text>
+    <text x="44" y="408" fill="#cbd5e1" font-size="10" font-weight="700">7D</text><rect x="78" y="399" width="145" height="10" rx="5" fill="#263449"/><rect x="78" y="399" width="77" height="10" rx="5" fill="#f59e0b"/><text x="235" y="408" fill="#fbbf24" font-size="10" font-weight="700">53%</text><text x="279" y="408" fill="#94a3b8" font-size="9">09/15</text>
+    <text x="44" y="437" fill="#64748b" font-size="9">更新于 21:38:16</text><rect x="277" y="421" width="69" height="25" rx="7" fill="#172554"/><text x="298" y="438" fill="#93c5fd" font-size="9" font-weight="700">刷新</text>
+    <line x1="44" y1="462" x2="346" y2="462" stroke="#263449"/>
+    <text x="44" y="489" fill="#94a3b8" font-size="9" font-weight="700">重置信息</text>
+    <text x="44" y="518" fill="#e2e8f0" font-size="10" font-weight="650">第一次重置</text><text x="244" y="518" fill="#94a3b8" font-size="9">09/16 08:00</text>
+    <text x="44" y="544" fill="#e2e8f0" font-size="10" font-weight="650">第二次重置</text><text x="244" y="544" fill="#94a3b8" font-size="9">09/19 08:00</text>
+    <rect x="44" y="562" width="90" height="28" rx="8" fill="#172554"/><text x="62" y="581" fill="#93c5fd" font-size="9" font-weight="700">重置额度</text>
+    <line x1="44" y1="608" x2="346" y2="608" stroke="#263449"/>
+    <text x="44" y="635" fill="#64748b" font-size="9" font-weight="700">HTTP / 耗时</text><rect x="151" y="620" width="38" height="22" rx="11" fill="#052e25"/><text x="160" y="635" fill="#4ade80" font-size="9" font-weight="700">200</text><text x="206" y="635" fill="#cbd5e1" font-size="10">842ms</text>
+    <text x="44" y="664" fill="#64748b" font-size="9" font-weight="700">最近检测</text><text x="151" y="664" fill="#cbd5e1" font-size="10">今天 21:36:54</text>
+    <text x="44" y="691" fill="#64748b" font-size="9" font-weight="700">错误原因</text><text x="151" y="691" fill="#64748b" font-size="10">-</text>
+  </g>
+
+  <rect x="28" y="720" width="334" height="30" rx="10" fill="#0f172a"/>
+  <text x="93" y="740" fill="#64748b" font-size="9" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">桌面表格在窄屏自动切换为账号卡片</text>
+</svg>
