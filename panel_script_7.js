@@ -93,6 +93,23 @@ function applyV5Copy(){
   if(quotaLabel)quotaLabel.textContent='单窗口预计可用时长（分钟）';
 }
 
+const quotaInfoHTMLWithoutPrivacy=quotaInfoHTML;
+quotaInfoHTML=function(state,authIndex){
+  if(!state||!panelPrivacyState().masked)return quotaInfoHTMLWithoutPrivacy(state,authIndex);
+  return quotaInfoHTMLWithoutPrivacy({...state,error:maskSensitiveText(state.error||''),resetError:maskSensitiveText(state.resetError||'')},authIndex);
+};
+
+const resetInfoHTMLWithoutPrivacy=resetInfoHTML;
+resetInfoHTML=function(state,authIndex){
+  if(!state||!panelPrivacyState().masked)return resetInfoHTMLWithoutPrivacy(state,authIndex);
+  return resetInfoHTMLWithoutPrivacy({...state,error:maskSensitiveText(state.error||''),resetError:maskSensitiveText(state.resetError||'')},authIndex);
+};
+
+const showNoticeWithoutPrivacy=showNotice;
+showNotice=function(message,isError=false){
+  return showNoticeWithoutPrivacy(privacyDisplayText(message),isError);
+};
+
 renderAccounts=function(accounts){
   currentAccounts=accounts.map(a=>({...a}));
   const excluded=excludedSet();
