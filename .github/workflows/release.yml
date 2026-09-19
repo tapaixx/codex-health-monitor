@@ -20,6 +20,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # A backfill run names an existing tag, so it has to build that tag's
+          # source. Without this the job builds whatever branch it was
+          # dispatched from and uploads the result as that tag's assets.
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
