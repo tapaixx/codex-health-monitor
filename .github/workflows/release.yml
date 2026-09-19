@@ -22,6 +22,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # A backfill run names an existing tag, so it has to build that tag's
+          # source. Without this the job builds whatever ref it was dispatched
+          # from and publishes the result as that tag's assets.
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
