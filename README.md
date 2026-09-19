@@ -88,6 +88,8 @@ Release tag 必须使用 `v<version>` 格式，例如：
 v0.1.11
 ```
 
+打包修订用数字后缀，例如 `v0.1.11-5`：同一份源码重新出包时用它，workflow 仍按正式版发布。带名字的后缀（例如 `v0.1.11-rc.1`）会被标记为 prerelease，CPA 的 latest Release 查询不会取到它。
+
 每个受支持的平台需要提供一个 zip，并在同一 Release 中提供统一的 `checksums.txt`。本项目当前支持 Linux amd64 和 arm64，对应资产应为：
 
 ```text

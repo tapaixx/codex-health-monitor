@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "要发布或回填资产的 Release tag，例如 v0.1.11"
+        description: "要发布或回填资产的 Release tag，例如 v0.1.11、v0.1.11-5 或 v0.1.11-rc.1"
         required: true
         type: string
 
@@ -21,9 +21,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           # A backfill run names an existing tag, so it has to build that tag's
-          # source. Without this the job builds whatever branch it was
-          # dispatched from and uploads the result as that tag's assets.
+          # source. Without this the job builds whatever ref it was dispatched
+          # from and publishes the result as that tag's assets.
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up QEMU
@@ -39,20 +40,32 @@ jobs:
           INPUT_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
+
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             tag="${INPUT_TAG}"
           else
             tag="${GITHUB_REF_NAME}"
           fi
 
-          if [[ ! "${tag}" =~ ^v[0-9]+(\.[0-9]+)+$ ]]; then
+          if [[ ! "${tag}" =~ ^v[0-9]+(\.[0-9]+)+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
             echo "Invalid release tag: ${tag}" >&2
             exit 1
           fi
 
           version="${tag#v}"
+          prerelease=false
+          if [[ "${version}" == *-* ]]; then
+            suffix="${version#*-}"
+            # Numeric-only suffixes are stable packaging revisions (for
+            # example 0.1.11-5). Named/compound suffixes remain prereleases.
+            if [[ ! "${suffix}" =~ ^[0-9]+$ ]]; then
+              prerelease=true
+            fi
+          fi
+
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
 
       - name: Build Linux shared libraries
         shell: bash
@@ -102,6 +115,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           set -euo pipefail
 
@@ -119,14 +133,21 @@ jobs:
           )
 
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            # 对已有 Release（例如 v0.1.11）只回填/更新插件商店资产，
-            # 不覆盖原有裸 .so 下载文件。
+            # 对已有 Release 只回填/更新插件商店资产，不覆盖裸 .so 下载文件。
             gh release upload "${TAG}" "${store_assets[@]}" --clobber
+            gh release edit "${TAG}" --prerelease="${PRERELEASE}"
           else
+            release_flags=(
+              --target "${GITHUB_SHA}"
+              --title "${TAG}"
+              --generate-notes
+            )
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              release_flags+=(--prerelease)
+            fi
+
             gh release create "${TAG}" \
               "${store_assets[@]}" \
               "${raw_assets[@]}" \
-              --target "${GITHUB_SHA}" \
-              --title "${TAG}" \
-              --generate-notes
+              "${release_flags[@]}"
           fi
